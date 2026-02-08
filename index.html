@@ -20,11 +20,22 @@
     .row.russian { color: #066; }
     .row label { margin: 0; cursor: pointer; flex: 1; }
     .row .hint { font-size: 0.7rem; color: #888; margin-left: 0.25rem; }
-    .side h2 { font-size: 0.95rem; margin: 1rem 0 0.5rem; }
-    #favourites { border: 1px solid #ccc; padding: 0.5rem; max-height: 60vh; overflow: auto; background: #fafafa; }
+    .side h2 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+    .side-section-body { border: 1px solid #ccc; padding: 0.5rem; overflow: auto; background: #fafafa; }
+    #favourites { max-height: 50vh; }
     #favourites .item { padding: 0.2rem 0; display: flex; align-items: center; gap: 0.4rem; }
     #favourites .item label { flex: 1; cursor: pointer; margin: 0; }
     #favourites:empty::after { content: 'None yet'; color: #888; font-size: 0.9rem; }
+    .side-section { margin-top: 1rem; }
+    .side-section h2 { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.35rem; }
+    .side-section h2::before { content: '▼'; font-size: 0.65rem; transition: transform 0.2s; }
+    .side-section.collapsed h2::before { transform: rotate(-90deg); }
+    .side-section.collapsed .side-section-body { display: none; }
+    #deleted { border: 1px solid #ccc; padding: 0.5rem; max-height: 40vh; overflow: auto; background: #fafafa; }
+    #deleted:empty::after { content: 'None'; color: #888; font-size: 0.9rem; }
+    #deleted .item { padding: 0.25rem 0; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+    #deleted .item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #deleted .restore { font-size: 0.75rem; padding: 0.15rem 0.4rem; cursor: pointer; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -40,8 +51,14 @@
       <div id="out"></div>
     </div>
     <aside class="side">
-      <h2>Favourites</h2>
-      <div id="favourites"></div>
+      <div class="side-section">
+        <h2>Favourites</h2>
+        <div class="side-section-body" id="favourites"></div>
+      </div>
+      <div class="side-section collapsed" id="deleted-section">
+        <h2>Deleted</h2>
+        <div class="side-section-body" id="deleted"></div>
+      </div>
     </aside>
   </div>
 
@@ -56,6 +73,11 @@
     const russianEl = document.getElementById('russian');
     const outEl = document.getElementById('out');
     const favEl = document.getElementById('favourites');
+    const deletedEl = document.getElementById('deleted');
+
+    document.querySelectorAll('.side-section h2').forEach(h => {
+      h.addEventListener('click', () => h.closest('.side-section').classList.toggle('collapsed'));
+    });
 
     function saveFavourites() {
       localStorage.setItem(STORAGE_KEY_FAV, JSON.stringify([...favourites]));
@@ -79,6 +101,31 @@
         lab.prepend(cb);
         div.appendChild(lab);
         favEl.appendChild(div);
+      });
+    }
+
+    function renderDeleted() {
+      const list = [...deleted].sort();
+      deletedEl.textContent = '';
+      list.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        const span = document.createElement('span');
+        span.textContent = s;
+        const btn = document.createElement('button');
+        btn.className = 'restore';
+        btn.type = 'button';
+        btn.textContent = 'Restore';
+        btn.addEventListener('click', () => {
+          deleted.delete(s);
+          saveDeleted();
+          render();
+          renderFavourites();
+          renderDeleted();
+        });
+        div.appendChild(span);
+        div.appendChild(btn);
+        deletedEl.appendChild(div);
       });
     }
 
@@ -121,6 +168,7 @@
           saveFavourites();
           render();
           renderFavourites();
+          renderDeleted();
         });
         outEl.appendChild(div);
       });
@@ -138,6 +186,7 @@
         saveFavourites();
         render();
         renderFavourites();
+        renderDeleted();
       })
       .catch(() => { outEl.textContent = 'Load surnames_filtered_oean_strict.json in the same folder.'; });
   </script>
