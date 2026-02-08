@@ -5,36 +5,87 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Surname filter</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 1rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.25rem; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 0 1rem 1rem; }
+    .wrap { display: flex; gap: 1rem; max-width: 900px; margin: 0 auto; }
+    .main { flex: 1; min-width: 0; }
+    .side { width: 200px; flex-shrink: 0; }
+    h1 { font-size: 1.25rem; margin-top: 1rem; }
     label { display: block; margin-top: 0.75rem; }
     input[type="text"] { width: 100%; padding: 0.4rem; box-sizing: border-box; }
     select { padding: 0.4rem; margin-top: 0.25rem; }
-    #out { margin-top: 1rem; max-height: 60vh; overflow: auto; border: 1px solid #ccc; padding: 0.5rem; }
-    .row { padding: 0.2rem 0; }
-    .russian { color: #066; }
+    #out { margin-top: 1rem; max-height: 70vh; overflow: auto; border: 1px solid #ccc; padding: 0.5rem; }
+    .row { padding: 0.25rem 0; display: flex; align-items: center; gap: 0.5rem; }
+    .row.fav { background: #ffc; }
+    .row.russian { color: #066; }
+    .row label { margin: 0; cursor: pointer; flex: 1; }
+    .row .hint { font-size: 0.7rem; color: #888; margin-left: 0.25rem; }
+    .side h2 { font-size: 0.95rem; margin: 1rem 0 0.5rem; }
+    #favourites { border: 1px solid #ccc; padding: 0.5rem; max-height: 60vh; overflow: auto; background: #fafafa; }
+    #favourites .item { padding: 0.2rem 0; display: flex; align-items: center; gap: 0.4rem; }
+    #favourites .item label { flex: 1; cursor: pointer; margin: 0; }
+    #favourites:empty::after { content: 'None yet'; color: #888; font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <h1>Surname filter</h1>
-  <label>Search <input type="text" id="q" placeholder="Type to filter..."></label>
-  <label>Russian <select id="russian">
-    <option value="all">All</option>
-    <option value="yes">Russian only</option>
-    <option value="no">Not Russian</option>
-  </select></label>
-  <div id="out"></div>
+  <div class="wrap">
+    <div class="main">
+      <h1>Surname filter</h1>
+      <label>Search <input type="text" id="q" placeholder="Type to filter..."></label>
+      <label>Russian <select id="russian">
+        <option value="all">All</option>
+        <option value="yes">Russian only</option>
+        <option value="no">Not Russian</option>
+      </select></label>
+      <div id="out"></div>
+    </div>
+    <aside class="side">
+      <h2>Favourites</h2>
+      <div id="favourites"></div>
+    </aside>
+  </div>
 
   <script>
+    const STORAGE_KEY_FAV = 'surname-favourites';
+    const STORAGE_KEY_DELETED = 'surname-deleted';
     let data = [];
+    let favourites = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_FAV) || '[]'));
+    let deleted = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_DELETED) || '[]'));
+
     const qEl = document.getElementById('q');
     const russianEl = document.getElementById('russian');
     const outEl = document.getElementById('out');
+    const favEl = document.getElementById('favourites');
+
+    function saveFavourites() {
+      localStorage.setItem(STORAGE_KEY_FAV, JSON.stringify([...favourites]));
+    }
+    function saveDeleted() {
+      localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify([...deleted]));
+    }
+
+    function renderFavourites() {
+      const list = [...favourites].filter(s => !deleted.has(s)).sort();
+      favEl.textContent = '';
+      list.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.addEventListener('change', () => { favourites.delete(s); saveFavourites(); render(); renderFavourites(); });
+        const lab = document.createElement('label');
+        lab.textContent = s;
+        lab.prepend(cb);
+        div.appendChild(lab);
+        favEl.appendChild(div);
+      });
+    }
 
     function render() {
       const q = (qEl.value || '').trim().toLowerCase();
       const rus = russianEl.value;
-      let list = data;
+      let list = data.filter(r => !deleted.has(r.surname));
       if (rus === 'yes') list = list.filter(r => r.russian);
       else if (rus === 'no') list = list.filter(r => !r.russian);
       if (q) list = list.filter(r => r.surname.toLowerCase().includes(q));
@@ -43,8 +94,34 @@
       outEl.textContent = '';
       list.forEach(r => {
         const div = document.createElement('div');
-        div.className = 'row' + (r.russian ? ' russian' : '');
-        div.textContent = r.surname + (r.count_combined || r.count_russian ? ' (' + (rus === 'yes' ? r.count_russian : r.count_combined) + ')' : '');
+        div.className = 'row' + (r.russian ? ' russian' : '') + (favourites.has(r.surname) ? ' fav' : '');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = favourites.has(r.surname);
+        cb.addEventListener('change', () => {
+          if (cb.checked) favourites.add(r.surname);
+          else favourites.delete(r.surname);
+          saveFavourites();
+          render();
+          renderFavourites();
+        });
+        const lab = document.createElement('label');
+        lab.textContent = r.surname + (r.count_combined || r.count_russian ? ' (' + (rus === 'yes' ? r.count_russian : r.count_combined) + ')' : '');
+        lab.prepend(cb);
+        div.appendChild(lab);
+        const hint = document.createElement('span');
+        hint.className = 'hint';
+        hint.textContent = 'right-click to delete';
+        div.appendChild(hint);
+        div.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          deleted.add(r.surname);
+          favourites.delete(r.surname);
+          saveDeleted();
+          saveFavourites();
+          render();
+          renderFavourites();
+        });
         outEl.appendChild(div);
       });
       if (list.length === 0) outEl.textContent = 'No matches.';
@@ -55,7 +132,13 @@
 
     fetch('surnames_filtered_oean_strict.json')
       .then(r => r.json())
-      .then(d => { data = d; render(); })
+      .then(d => {
+        data = d;
+        favourites = new Set([...favourites].filter(s => !deleted.has(s)));
+        saveFavourites();
+        render();
+        renderFavourites();
+      })
       .catch(() => { outEl.textContent = 'Load surnames_filtered_oean_strict.json in the same folder.'; });
   </script>
 </body>
