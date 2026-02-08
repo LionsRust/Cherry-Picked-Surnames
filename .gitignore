@@ -1,0 +1,4 @@
+*.csv
+*.py
+surnames_filtered*.txt
+.DS_Store
