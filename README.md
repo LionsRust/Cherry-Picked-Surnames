@@ -1,6 +1,6 @@
 # Cherry-Picked Surnames
 
-Simple web app to browse and filter surnames (allowed endings: -o, -e, -a, -en, -on; excludes -eva and other suffixes). Data is ranked by popularity from US Census and Russian surname lists.
+Simple web app to browse and filter surnames ending in **-in** only. Data is ranked by popularity from US Census and Russian surname lists.
 
 ## Run locally
 
